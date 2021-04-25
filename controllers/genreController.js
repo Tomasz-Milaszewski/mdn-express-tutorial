@@ -1,4 +1,6 @@
 var Genre = require('../models/genre');
+var Book = require('../models/book');
+var async = require('async');
 
 // Display list of all Genres.
 exports.genre_list = function(req, res, next) {
@@ -14,8 +16,30 @@ exports.genre_list = function(req, res, next) {
 };
 
 // Display detail page for a specific Genre.
-exports.genre_detail = function(req, res) {
-    res.send('NOT IMPLEMENTED: Genre detail: ' + req.params.id);
+exports.genre_detail = function(req, res, next) {
+
+    async.parallel({ // query the genre name and its associated books in parallel
+        genre: function(callback) {
+            Genre.findById(req.params.id) // id of the requested genre is taken from params
+                .exec(callback);
+        },
+
+        genre_books: function(callback) {
+            Book.find({ 'genre': req.params.id }) // books are filtered by genre id
+                .exec(callback);
+        },
+
+    }, function(err, results) {
+        if (err) { return next(err); }
+        if (results.genre==null) { // No results. This is because findById will return successfully with no results if genre does not exist in db
+            var err = new Error('Genre not found');
+            err.status = 404;
+            return next(err);
+        }
+        // Successful, so render
+        res.render('genre_detail', { title: 'Genre Detail', genre: results.genre, genre_books: results.genre_books } );
+    });
+
 };
 
 // Display Genre create form on GET.
